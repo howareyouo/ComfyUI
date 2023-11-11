@@ -90,6 +90,10 @@ export class ComfyApp {
 		return "&rand=" + Math.random();
 	}
 
+	getRandParam() {
+		return "&rand=" + Math.random();
+	}
+
 	static isImageNode(node) {
 		return node.imgs || (node && node.widgets && node.widgets.findIndex(obj => obj.name === 'image') >= 0);
 	}
@@ -436,15 +440,9 @@ export class ComfyApp {
 					if (this.images !== output.images) {
 						this.images = output.images;
 						imagesChanged = true;
-						imgURLs = imgURLs.concat(
-							output.images.map((params) => {
-								return api.apiURL(
-									"/view?" +
-										new URLSearchParams(params).toString() +
-										(this.animatedImages ? "" : app.getPreviewFormatParam()) + app.getRandParam()
-								);
-							})
-						);
+						imgURLs = imgURLs.concat(output.images.map(params => {
+							return api.apiURL("/view?" + new URLSearchParams(params).toString() + app.getPreviewFormatParam() + app.getRandParam());
+						}))
 					}
 				}
 
