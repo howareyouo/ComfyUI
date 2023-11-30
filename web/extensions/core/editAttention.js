@@ -16,14 +16,7 @@ app.registerExtension({
             },
             defaultValue: 0.05,
         });
-
-        function incrementWeight(weight, delta) {
-            const floatWeight = parseFloat(weight);
-            if (isNaN(floatWeight)) return weight;
-            const newWeight = floatWeight + delta;
-            if (newWeight < 0) return "0";
-            return String(Number(newWeight.toFixed(10)));
-        }
+        const delimiters = ".,\\/!?%^*;:{}=-_`~()\r\n\t";
 
         function findNearestEnclosure(text, cursorPos) {
             let start = cursorPos, end = cursorPos;
@@ -53,7 +46,7 @@ app.registerExtension({
             return { start: start + 1, end: end };
         }
 
-        function addWeightToParentheses(text) {
+        function addWeightToParentheses(text, isPlus) {
             const parenRegex = /^\((.*)\)$/;
             const parenMatch = text.match(parenRegex);
 
@@ -61,22 +54,29 @@ app.registerExtension({
             const floatMatch = text.match(floatRegex);
 
             if (parenMatch && !floatMatch) {
-                return `(${parenMatch[1]}:1.0)`;
+                return `(${parenMatch[1]}:1.1)`;
             } else {
                 return text;
             }
         };
 
-        function editAttention(event) {
-            const inputField = event.composedPath()[0];
+        function editAttention(e) {
+            const inputField = e.composedPath()[0];
             const delta = parseFloat(editAttentionDelta.value);
 
             if (inputField.tagName !== "TEXTAREA") return;
-            if (!(event.key === "ArrowUp" || event.key === "ArrowDown")) return;
-            if (!event.ctrlKey && !event.metaKey) return;
-
-            event.preventDefault();
-
+            if (!(e.metaKey || e.ctrlKey || e.altKey || e.type == 'wheel')) return
+            
+            let isPlus
+            if (e.type == "wheel") {
+                isPlus = e.deltaY < 0
+            } else {
+                if (e.key === "ArrowUp") isPlus = 1
+                else if (e.key == "ArrowDown") isPlus = 0
+                else return
+            }
+            e.preventDefault();
+            
             let start = inputField.selectionStart;
             let end = inputField.selectionEnd;
             let selectedText = inputField.value.substring(start, end);
@@ -90,55 +90,68 @@ app.registerExtension({
                     selectedText = inputField.value.substring(start, end);
                 } else {
                     // Select the current word, find the start and end of the word
-                    const delimiters = " .,\\/!?%^*;:{}=-_`~()\r\n\t";
-                    
                     while (!delimiters.includes(inputField.value[start - 1]) && start > 0) {
-                        start--;
+                        start--
                     }
                     
                     while (!delimiters.includes(inputField.value[end]) && end < inputField.value.length) {
-                        end++;
+                        end++
                     }
 
                     selectedText = inputField.value.substring(start, end);
                     if (!selectedText) return;
                 }
             }
-
-            // If the selection ends with a space, remove it
-            if (selectedText[selectedText.length - 1] === " ") {
-                selectedText = selectedText.substring(0, selectedText.length - 1);
-                end -= 1;
+            
+            let parts = selectedText.match(/^\s*|\s*$/g)
+            let leftSpaces = parts[0].length
+            let rightSpaces = parts[1]?.length || 0
+            if (leftSpaces) {
+                start += leftSpaces
+            }
+            if (rightSpaces) {
+                end -= rightSpaces
             }
 
             // If there are parentheses left and right of the selection, select them
             if (inputField.value[start - 1] === "(" && inputField.value[end] === ")") {
-                start -= 1;
-                end += 1;
-                selectedText = inputField.value.substring(start, end);
+                start--
+                end++
             }
+            selectedText = inputField.value.substring(start, end);
 
+            let updatedText
             // If the selection is not enclosed in parentheses, add them
             if (selectedText[0] !== "(" || selectedText[selectedText.length - 1] !== ")") {
-                selectedText = `(${selectedText})`;
-            }
-
-            // If the selection does not have a weight, add a weight of 1.0
-            selectedText = addWeightToParentheses(selectedText);
-
-            // Increment the weight
-            const weightDelta = event.key === "ArrowUp" ? delta : -delta;
-            const updatedText = selectedText.replace(/\((.*):(\d+(?:\.\d+)?)\)/, (match, text, weight) => {
-                weight = incrementWeight(weight, weightDelta);
-                if (weight == 1) {
-                    return text;
+                if (isPlus) {
+                    updatedText = `(${selectedText})`
                 } else {
-                    return `(${text}:${weight})`;
+                    let weight = String(1 - delta).replace('0.', '.')
+                    updatedText = `(${selectedText}:${weight})`
                 }
-            });
-
+            } else {
+                // If the selection does not have a weight, add a weight of 1.0
+                selectedText = addWeightToParentheses(selectedText, isPlus);
+    
+                // Increment the weight
+                let weightDelta = isPlus ? delta : -delta;
+                let parts = selectedText.substring(1, selectedText.length - 1).split(':')
+                let weight = parseFloat(parts[1]) + weightDelta
+                weight = String(Number(weight.toFixed(3))).replace('0.', '.')
+                switch (weight) {
+                    case '1.1':
+                        updatedText = '(' + parts[0] + ')'
+                        break
+                    case '1':
+                        updatedText = parts[0]
+                        break
+                    default:
+                        updatedText = '(' + parts[0] + ':' + weight + ')'
+                }
+            }
             inputField.setRangeText(updatedText, start, end, "select");
         }
         window.addEventListener("keydown", editAttention);
-    },
+        window.addEventListener("wheel", editAttention, {passive: false});
+    }
 });

@@ -3,31 +3,37 @@ import {app} from "../../scripts/app.js";
 app.registerExtension({
 	name: "Comfy.Keybinds",
 	init() {
-		const keybindListener = function (event) {
-			const modifierPressed = event.ctrlKey || event.metaKey;
+		let specialCodes = ['Backquote']
 
+		const keybindListener = function (e) {
+			const modifierPressed = e.ctrlKey || e.altKey || e.metaKey;
+			const el = e.composedPath()[0]
+			let editable = el.isEditable || ["INPUT", "TEXTAREA"].includes(el.tagName)
+
+			if (editable && !specialCodes.includes(e.code))  {
+				return
+			}
+			
 			// Queue prompt using ctrl or command + enter
-			if (modifierPressed && event.key === "Enter") {
-				app.queuePrompt(event.shiftKey ? -1 : 0).then();
+			if ((modifierPressed && e.key === "Enter") || e.code === 'Backquote') {
+				app.queuePrompt(e.shiftKey ? -1 : 0).then();
+				e.preventDefault();
 				return;
 			}
 
-			const target = event.composedPath()[0];
-			if (["INPUT", "TEXTAREA"].includes(target.tagName)) {
-				return;
-			}
+			if (editable) return;
 
 			const modifierKeyIdMap = {
 				s: "#comfy-save-button",
 				o: "#comfy-file-input",
+				d: "#comfy-load-default-button",
 				Backspace: "#comfy-clear-button",
 				Delete: "#comfy-clear-button",
-				d: "#comfy-load-default-button",
 			};
 
-			const modifierKeybindId = modifierKeyIdMap[event.key];
+			const modifierKeybindId = modifierKeyIdMap[e.key];
 			if (modifierPressed && modifierKeybindId) {
-				event.preventDefault();
+				e.preventDefault();
 
 				const elem = document.querySelector(modifierKeybindId);
 				elem.click();
@@ -35,12 +41,12 @@ app.registerExtension({
 			}
 
 			// Finished Handling all modifier keybinds, now handle the rest
-			if (event.ctrlKey || event.altKey || event.metaKey) {
+			if (modifierPressed) {
 				return;
 			}
 
 			// Close out of modals using escape
-			if (event.key === "Escape") {
+			if (e.key === "Escape") {
 				const modals = document.querySelectorAll(".comfy-modal");
 				const modal = Array.from(modals).find(modal => window.getComputedStyle(modal).getPropertyValue("display") !== "none");
 				if (modal) {
@@ -58,7 +64,7 @@ app.registerExtension({
 				r: "#comfy-refresh-button",
 			};
 
-			const buttonId = keyIdMap[event.key];
+			const buttonId = keyIdMap[e.key];
 			if (buttonId) {
 				const button = document.querySelector(buttonId);
 				button.click();
