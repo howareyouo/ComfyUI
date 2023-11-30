@@ -92,6 +92,9 @@ def prompt_worker(q, server):
     need_gc = False
     gc_collect_interval = 10.0
 
+    need_gc = False
+    gc_collect_interval = 10.0
+
     while True:
         timeout = None
         if need_gc:
@@ -108,14 +111,17 @@ def prompt_worker(q, server):
             if server.client_id is not None:
                 server.send_sync("executing", { "node": None, "prompt_id": prompt_id }, server.client_id)
 
-        current_time = time.perf_counter()
-        execution_time = current_time - execution_start_time
-        print("Prompt executed in {:.2f} seconds".format(execution_time))
-        if (current_time - last_gc_collect) > 10.0:
-            gc.collect()
-            comfy.model_management.soft_empty_cache()
-            last_gc_collect = current_time
-            # print("gc collect")
+            current_time = time.perf_counter()
+            execution_time = current_time - execution_start_time
+            print("Prompt executed in {:.2f} seconds".format(execution_time))
+
+        if need_gc:
+            current_time = time.perf_counter()
+            if (current_time - last_gc_collect) > gc_collect_interval:
+                gc.collect()
+                comfy.model_management.soft_empty_cache()
+                last_gc_collect = current_time
+                need_gc = False
 
 async def run(server, address='', port=8188, verbose=True, call_on_start=None):
     await asyncio.gather(server.start(address, port, verbose, call_on_start), server.publish_loop())
