@@ -46,20 +46,6 @@ app.registerExtension({
             return { start: start + 1, end: end };
         }
 
-        function addWeightToParentheses(text, isPlus) {
-            const parenRegex = /^\((.*)\)$/;
-            const parenMatch = text.match(parenRegex);
-
-            const floatRegex = /:([+-]?(\d*\.)?\d+([eE][+-]?\d+)?)/;
-            const floatMatch = text.match(floatRegex);
-
-            if (parenMatch && !floatMatch) {
-                return `(${parenMatch[1]}:1.1)`;
-            } else {
-                return text;
-            }
-        };
-
         function editAttention(e) {
             const inputField = e.composedPath()[0];
             const delta = parseFloat(editAttentionDelta.value);
@@ -121,23 +107,28 @@ app.registerExtension({
             selectedText = inputField.value.substring(start, end);
 
             let updatedText
+            let weight = isPlus ? 1 + delta : 1 - delta;
+            
             // If the selection is not enclosed in parentheses, add them
             if (selectedText[0] !== "(" || selectedText[selectedText.length - 1] !== ")") {
-                if (isPlus) {
+                if (weight == 1.1) {
                     updatedText = `(${selectedText})`
                 } else {
-                    let weight = String(1 - delta).replace('0.', '.')
+                    weight = String(Number(weight.toFixed(2))).replace('0.', '.')
                     updatedText = `(${selectedText}:${weight})`
                 }
-            } else {
-                // If the selection does not have a weight, add a weight of 1.0
-                selectedText = addWeightToParentheses(selectedText, isPlus);
-    
-                // Increment the weight
-                let weightDelta = isPlus ? delta : -delta;
+            } 
+            // Increment the weight
+            else {    
                 let parts = selectedText.substring(1, selectedText.length - 1).split(':')
-                let weight = parseFloat(parts[1]) + weightDelta
-                weight = String(Number(weight.toFixed(3))).replace('0.', '.')
+                
+                weight = 1.1
+                if (parts.length == 2) {
+                    weight = parseFloat(parts[1])
+                }
+                weight += isPlus ? delta : -delta;
+                weight = Math.max(0, weight)
+                weight = String(Number(weight.toFixed(2))).replace('0.', '.')
                 switch (weight) {
                     case '1.1':
                         updatedText = '(' + parts[0] + ')'

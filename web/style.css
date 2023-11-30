@@ -34,10 +34,12 @@ body {
 }
 
 .comfy-multiline-input {
+	font-family: 'Noto Sans', 'system-ui', sans-serif;
 	background-color: var(--comfy-input-bg);
 	color: var(--input-text);
 	overflow: hidden;
 	overflow-y: auto;
+	outline: none;
 	padding: 2px;
 	resize: none;
 	border: none;
