@@ -16,7 +16,7 @@ app.registerExtension({
             },
             defaultValue: 0.05,
         });
-        const delimiters = ".,\\/!?%^*;:{}=-_`~()\r\n\t";
+        const delimiters = ".,\\/!?%^*;{}=-`~()\r\n\t";
 
         function findNearestEnclosure(text, cursorPos) {
             let start = cursorPos, end = cursorPos;
@@ -29,7 +29,7 @@ app.registerExtension({
                 if (text[start] === "(") openCount++;
                 if (text[start] === ")") closeCount++;
             }
-            if (start < 0) return false;
+            if (start < 0) return
 
             openCount = 0;
             closeCount = 0;
@@ -41,16 +41,16 @@ app.registerExtension({
                 if (text[end] === ")") closeCount++;
                 end++;
             }
-            if (end === text.length) return false;
+            if (end === text.length) return
 
-            return { start: start + 1, end: end };
+            return { start: start + 1, end }
         }
 
         function editAttention(e) {
-            const inputField = e.composedPath()[0];
+            const el = e.composedPath()[0];
             const delta = parseFloat(editAttentionDelta.value);
 
-            if (inputField.tagName !== "TEXTAREA") return;
+            if (el.tagName !== "TEXTAREA") return;
             if (!(e.metaKey || e.ctrlKey || e.altKey || e.type == 'wheel')) return
             
             let isPlus
@@ -63,48 +63,44 @@ app.registerExtension({
             }
             e.preventDefault();
             
-            let start = inputField.selectionStart;
-            let end = inputField.selectionEnd;
-            let selectedText = inputField.value.substring(start, end);
+            let start = el.selectionStart;
+            let end = el.selectionEnd;
+            let text = el.value
+            let selectedText = text.substring(start, end);
 
             // If there is no selection, attempt to find the nearest enclosure, or select the current word
             if (!selectedText) {
-                const nearestEnclosure = findNearestEnclosure(inputField.value, start);
-                if (nearestEnclosure) {
-                    start = nearestEnclosure.start;
-                    end = nearestEnclosure.end;
-                    selectedText = inputField.value.substring(start, end);
+                const nclosure = findNearestEnclosure(text, start);
+                if (nclosure) {
+                    start = nclosure.start;
+                    end = nclosure.end;
+                    selectedText = text.substring(start, end);
                 } else {
                     // Select the current word, find the start and end of the word
-                    while (!delimiters.includes(inputField.value[start - 1]) && start > 0) {
+                    while (!delimiters.includes(text[start - 1]) && start > 0) {
                         start--
                     }
-                    
-                    while (!delimiters.includes(inputField.value[end]) && end < inputField.value.length) {
+                    while (!delimiters.includes(text[end]) && end < text.length) {
                         end++
                     }
-
-                    selectedText = inputField.value.substring(start, end);
-                    if (!selectedText) return;
+                    while (start < end && text[start] == ' ') {
+                        start++
+                    }
+                    while (start < end && text[end - 1] == ' ') {
+                        end--
+                    }
                 }
             }
             
-            let parts = selectedText.match(/^\s*|\s*$/g)
-            let leftSpaces = parts[0].length
-            let rightSpaces = parts[1]?.length || 0
-            if (leftSpaces) {
-                start += leftSpaces
-            }
-            if (rightSpaces) {
-                end -= rightSpaces
-            }
+            selectedText = text.substring(start, end);
+            if (!selectedText) return;
 
             // If there are parentheses left and right of the selection, select them
-            if (inputField.value[start - 1] === "(" && inputField.value[end] === ")") {
+            if (text[start - 1] === "(" && text[end] === ")") {
                 start--
                 end++
             }
-            selectedText = inputField.value.substring(start, end);
+            selectedText = text.substring(start, end);
 
             let updatedText
             let weight = isPlus ? 1 + delta : 1 - delta;
@@ -120,27 +116,33 @@ app.registerExtension({
             } 
             // Increment the weight
             else {    
-                let parts = selectedText.substring(1, selectedText.length - 1).split(':')
-                
+                let parts = selectedText.substring(1, selectedText.length - 1).split(':')                
+                let content = parts[0]
                 weight = 1.1
-                if (parts.length == 2) {
+                if (parts[0].endsWith('embedding')) {
+                    content += ':' + parts[1]
+                    if (parts.length == 3) {
+                        weight = parseFloat(parts[2])
+                    }
+                } else if (parts.length == 2) {
                     weight = parseFloat(parts[1])
                 }
+                
                 weight += isPlus ? delta : -delta;
                 weight = Math.max(0, weight)
                 weight = String(Number(weight.toFixed(2))).replace('0.', '.')
                 switch (weight) {
                     case '1.1':
-                        updatedText = '(' + parts[0] + ')'
+                        updatedText = '(' + content + ')'
                         break
                     case '1':
-                        updatedText = parts[0]
+                        updatedText = content
                         break
                     default:
-                        updatedText = '(' + parts[0] + ':' + weight + ')'
+                        updatedText = '(' + content + ':' + weight + ')'
                 }
             }
-            inputField.setRangeText(updatedText, start, end, "select");
+            el.setRangeText(updatedText, start, end, "select");
         }
         window.addEventListener("keydown", editAttention);
         window.addEventListener("wheel", editAttention, {passive: false});
