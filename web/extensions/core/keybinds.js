@@ -3,19 +3,15 @@ import {app} from "../../scripts/app.js";
 app.registerExtension({
 	name: "Comfy.Keybinds",
 	init() {
-		let specialCodes = ['Backquote']
 
-		const keybindListener = function (e) {
-			const modifierPressed = e.ctrlKey || e.altKey || e.metaKey;
-			const el = e.composedPath()[0]
+		let keybindListener = function (e) {
+			let modifierPressed = e.ctrlKey || e.altKey || e.metaKey;
+			let el = e.composedPath()[0]
 			let editable = el.isEditable || ["INPUT", "TEXTAREA"].includes(el.tagName)
-
-			if (editable && !specialCodes.includes(e.code))  {
-				return
-			}
+			let queueKey = ["Backquote", "ShiftRight"].includes(e.code)
 			
-			// Queue prompt using ctrl or command + enter
-			if ((modifierPressed && e.key === "Enter") || e.code === 'Backquote') {
+			// Queue prompt using ctrl/command + enter
+			if ((modifierPressed && e.key === "Enter") || queueKey) {
 				app.queuePrompt(e.shiftKey ? -1 : 0).then();
 				e.preventDefault();
 				return;
@@ -23,7 +19,7 @@ app.registerExtension({
 
 			if (editable) return;
 
-			const modifierKeyIdMap = {
+			let modifierKeyIdMap = {
 				s: "#comfy-save-button",
 				o: "#comfy-file-input",
 				d: "#comfy-load-default-button",
@@ -31,11 +27,11 @@ app.registerExtension({
 				Delete: "#comfy-clear-button",
 			};
 
-			const modifierKeybindId = modifierKeyIdMap[e.key];
+			let modifierKeybindId = modifierKeyIdMap[e.key];
 			if (modifierPressed && modifierKeybindId) {
 				e.preventDefault();
 
-				const elem = document.querySelector(modifierKeybindId);
+				let elem = document.querySelector(modifierKeybindId);
 				elem.click();
 				return;
 			}
@@ -47,26 +43,26 @@ app.registerExtension({
 
 			// Close out of modals using escape
 			if (e.key === "Escape") {
-				const modals = document.querySelectorAll(".comfy-modal");
-				const modal = Array.from(modals).find(modal => window.getComputedStyle(modal).getPropertyValue("display") !== "none");
+				let modals = document.querySelectorAll(".comfy-modal");
+				let modal = Array.from(modals).find(modal => getComputedStyle(modal).getPropertyValue("display") !== "none");
 				if (modal) {
-					modal.style.display = "none";
+					modal.style.display = "none"
 				}
 
-				[...document.querySelectorAll("dialog")].forEach(d => {
-					d.close();
+				document.querySelectorAll("dialog").forEach(d => {
+					d.close()
 				});
 			}
 
-			const keyIdMap = {
+			let keyIdMap = {
 				q: "#comfy-view-queue-button",
 				h: "#comfy-view-history-button",
 				r: "#comfy-refresh-button",
 			};
 
-			const buttonId = keyIdMap[e.key];
+			let buttonId = keyIdMap[e.key];
 			if (buttonId) {
-				const button = document.querySelector(buttonId);
+				let button = document.querySelector(buttonId);
 				button.click();
 			}
 		}
