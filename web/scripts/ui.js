@@ -90,11 +90,14 @@ function dragElement(dragEl, settings) {
 	}).observe(dragEl);
 
 	function ensureInBounds() {
-		if (dragEl.classList.contains("comfy-menu-manual-pos")) {
+		try {
 			newPosX = Math.min(document.body.clientWidth - dragEl.clientWidth, Math.max(0, dragEl.offsetLeft));
 			newPosY = Math.min(document.body.clientHeight - dragEl.clientHeight, Math.max(0, dragEl.offsetTop));
 
 			positionElement();
+		}
+		catch(exception){
+			// robust
 		}
 	}
 
@@ -225,7 +228,7 @@ class ComfyList {
 							$el("button", {
 								textContent: "Load",
 								onclick: async () => {
-									await app.loadGraphData(item.prompt[3].extra_pnginfo.workflow);
+									await app.loadGraphData(item.prompt[3].extra_pnginfo.workflow, true, false);
 									if (item.outputs) {
 										app.nodeOutputs = item.outputs;
 									}
@@ -384,7 +387,7 @@ export class ComfyUI {
 		autoQueueModeEl.style.display = "none";
 
 		api.addEventListener("graphChanged", () => {
-			if (this.autoQueueMode === "change") {
+			if (this.autoQueueMode === "change" && this.autoQueueEnabled === true) {
 				if (this.lastQueueSize === 0) {
 					this.graphHasChanged = false;
 					app.queuePrompt(0, this.batchCount);
@@ -394,18 +397,42 @@ export class ComfyUI {
 			}
 		});
 
-		this.menuContainer = $el("div.comfy-menu", {parent: document.body}, [
-			$el("div.drag-handle", {
+		this.menuHamburger = $el(
+			"div.comfy-menu-hamburger",
+			{
+				parent: document.body,
+				onclick: () => {
+					this.menuContainer.style.display = "block";
+					this.menuHamburger.style.display = "none";
+				},
+			},
+			[$el("div"), $el("div"), $el("div")]
+		);
+
+		this.menuContainer = $el("div.comfy-menu", { parent: document.body }, [
+			$el("div.drag-handle.comfy-menu-header", {
 				style: {
 					overflow: "hidden",
 					position: "relative",
 					width: "100%",
 					cursor: "default"
 				}
-			}, [
+			}, 	[
 				$el("span.drag-handle"),
-				$el("span", {$: (q) => (this.queueSize = q)}),
-				$el("button.comfy-settings-btn", {textContent: "⚙️", onclick: () => this.settings.show()}),
+				$el("span.comfy-menu-queue-size", { $: (q) => (this.queueSize = q) }),
+				$el("div.comfy-menu-actions", [
+					$el("button.comfy-settings-btn", {
+						textContent: "⚙️",
+						onclick: () => this.settings.show(),
+					}),
+					$el("button.comfy-close-menu-btn", {
+						textContent: "\u00d7",
+						onclick: () => {
+							this.menuContainer.style.display = "none";
+							this.menuHamburger.style.display = "flex";
+						},
+					}),
+				]),
 			]),
 			$el("button.comfy-queue-btn", {
 				id: "queue-button",
@@ -570,14 +597,21 @@ export class ComfyUI {
 					if (!confirmClear.value || confirm("Clear workflow?")) {
 						app.clean();
 						app.graph.clear();
+						app.resetView();
 					}
 				}
 			}),
 			$el("button", {
 				id: "comfy-load-default-button", textContent: "Load Default", onclick: async () => {
 					if (!confirmClear.value || confirm("Load default workflow?")) {
+						app.resetView();
 						await app.loadGraphData()
 					}
+				}
+			}),
+			$el("button", {
+				id: "comfy-reset-view-button", textContent: "Reset View", onclick: async () => {
+					app.resetView();
 				}
 			}),
 		]);
